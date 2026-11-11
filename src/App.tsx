@@ -25,31 +25,43 @@ const start: State = {
 }
 
 function reducer(state: State, action: Action): State {
-  if (action.type === 'reset') return { ...start, tubes: start.tubes.map((tube) => [...tube]) }
+  switch (action.type) {
+    case 'reset':
+      return start
+    case 'select': {
+      const { index } = action
+      if (state.won || index < 0 || index >= state.tubes.length) return state
 
-  const { index } = action
-  if (state.selected === null) {
-    return state.tubes[index].length
-      ? { ...state, selected: index }
-      : state
+      if (state.selected === null) {
+        return state.tubes[index].length
+          ? { ...state, selected: index }
+          : state
+      }
+
+      if (state.selected === index) return { ...state, selected: null }
+
+      const tubes = state.tubes.map((tube) => [...tube])
+      const source = tubes[state.selected]
+      const target = tubes[index]
+      const ball = source[source.length - 1]
+
+      if (target.length === 4 || (target.length > 0 && target.at(-1) !== ball)) {
+        return { ...state, selected: null }
+      }
+
+      const movedBall = source.pop()
+      if (movedBall === undefined) return { ...state, selected: null }
+      target.push(movedBall)
+
+      const won = tubes.every(
+        (tube) =>
+          tube.length === 0 ||
+          (tube.length === 4 && tube.every((color) => color === tube[0])),
+      )
+
+      return { tubes, selected: null, moves: state.moves + 1, won }
+    }
   }
-  if (state.selected === index) return { ...state, selected: null }
-
-  const tubes = state.tubes.map((tube) => [...tube])
-  const source = tubes[state.selected]
-  const target = tubes[index]
-  const ball = source[source.length - 1]
-
-  if (target.length === 4 || (target.length > 0 && target.at(-1) !== ball)) {
-    return { ...state, selected: null }
-  }
-
-  target.push(source.pop()!)
-  const won = tubes.every(
-    (tube) => tube.length === 0 || (tube.length === 4 && tube.every((color) => color === tube[0])),
-  )
-
-  return { tubes, selected: null, moves: state.moves + 1, won }
 }
 
 const GameContext = createContext<{
@@ -86,10 +98,7 @@ function Game() {
 }
 
 export default function App() {
-  const [state, dispatch] = useReducer(reducer, start, (initial) => ({
-    ...initial,
-    tubes: initial.tubes.map((tube) => [...tube]),
-  }))
+  const [state, dispatch] = useReducer(reducer, start)
 
   return (
     <GameContext.Provider value={{ state, dispatch }}>
