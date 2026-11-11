@@ -12,9 +12,7 @@ npm install
 npm run dev
 ```
 
-## Organização
+## Código
 
-- `src/game/gameReducer.ts`: estado inicial e regras das jogadas.
-- `src/game/gameContext.ts`, `GameProvider.tsx` e `useGame.ts`: compartilhamento
-  do estado com Context.
-- `src/App.tsx`: interface e envio das ações para o reducer.
+O reducer, o Context e a interface estão em `src/App.tsx`. Os estilos estão em
+`src/App.css`.

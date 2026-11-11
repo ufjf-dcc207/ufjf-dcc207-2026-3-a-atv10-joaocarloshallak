@@ -1,79 +1,99 @@
-import { GameProvider } from './game/GameProvider'
-import { useGame } from './game/useGame'
+import { createContext, useContext, useReducer } from 'react'
 import './App.css'
 
-const colorNames: Record<string, string> = {
-  coral: 'coral',
-  blue: 'azul',
-  green: 'verde',
-  yellow: 'amarelo',
+type State = {
+  tubes: string[][]
+  selected: number | null
+  moves: number
+  won: boolean
 }
 
+type Action = { type: 'select'; index: number } | { type: 'reset' }
+
+const start: State = {
+  tubes: [
+    ['red', 'blue', 'green', 'yellow'],
+    ['blue', 'green', 'yellow', 'red'],
+    ['green', 'yellow', 'red', 'blue'],
+    ['yellow', 'red', 'blue', 'green'],
+    [],
+    [],
+  ],
+  selected: null,
+  moves: 0,
+  won: false,
+}
+
+function reducer(state: State, action: Action): State {
+  if (action.type === 'reset') return { ...start, tubes: start.tubes.map((tube) => [...tube]) }
+
+  const { index } = action
+  if (state.selected === null) {
+    return state.tubes[index].length
+      ? { ...state, selected: index }
+      : state
+  }
+  if (state.selected === index) return { ...state, selected: null }
+
+  const tubes = state.tubes.map((tube) => [...tube])
+  const source = tubes[state.selected]
+  const target = tubes[index]
+  const ball = source[source.length - 1]
+
+  if (target.length === 4 || (target.length > 0 && target.at(-1) !== ball)) {
+    return { ...state, selected: null }
+  }
+
+  target.push(source.pop()!)
+  const won = tubes.every(
+    (tube) => tube.length === 0 || (tube.length === 4 && tube.every((color) => color === tube[0])),
+  )
+
+  return { tubes, selected: null, moves: state.moves + 1, won }
+}
+
+const GameContext = createContext<{
+  state: State
+  dispatch: React.Dispatch<Action>
+} | null>(null)
+
 function Game() {
-  const { state, dispatch } = useGame()
+  const game = useContext(GameContext)
+  if (!game) throw new Error('Game precisa de GameContext')
+  const { state, dispatch } = game
 
   return (
-    <main className="game">
-      <header className="header">
-        <div>
-          <p className="eyebrow">JOGO DE LÓGICA</p>
-          <h1>Magic Sort</h1>
-        </div>
-        <div className="moves" aria-live="polite">
-          <span>Movimentos</span>
-          <strong>{state.moves}</strong>
-        </div>
-      </header>
-
-      <p className="instructions">
-        Organize as cores nos tubos. Só é possível colocar uma cor sobre outra igual.
-      </p>
-
-      {state.won && <p className="win-message">Muito bem! Você organizou todas as cores.</p>}
-
-      <section className="board" aria-label="Tabuleiro do Magic Sort">
+    <main>
+      <h1>Magic Sort</h1>
+      <p>Movimentos: {state.moves}</p>
+      <p>Escolha um tubo e depois outro para mover uma bola.</p>
+      <div className="board">
         {state.tubes.map((tube, index) => (
           <button
-            className={`tube ${state.selectedTube === index ? 'selected' : ''}`}
+            className={`tube ${state.selected === index ? 'selected' : ''}`}
             key={index}
-            type="button"
-            aria-label={`Tubo ${index + 1}${tube.length ? `, ${colorNames[tube[tube.length - 1]]} no topo` : ', vazio'}`}
-            onClick={() => dispatch({ type: 'SELECT_TUBE', index })}
+            onClick={() => dispatch({ type: 'select', index })}
+            aria-label={`Tubo ${index + 1}`}
           >
-            {tube.map((color, ballIndex) => (
-              <span className={`ball ${color}`} key={ballIndex} />
-            ))}
+            {tube.map((color, ball) => <span className={color} key={ball} />)}
           </button>
         ))}
-      </section>
-
-      <div className="controls">
-        <button
-          className="secondary-button"
-          type="button"
-          disabled={state.history.length === 0}
-          onClick={() => dispatch({ type: 'UNDO' })}
-        >
-          Desfazer
-        </button>
-        <button
-          className="primary-button"
-          type="button"
-          onClick={() => dispatch({ type: 'RESET' })}
-        >
-          Reiniciar
-        </button>
       </div>
+      {state.won && <p>Você venceu!</p>}
+      <button onClick={() => dispatch({ type: 'reset' })}>Reiniciar</button>
     </main>
   )
 }
 
-function App() {
+export default function App() {
+  const [state, dispatch] = useReducer(reducer, start, (initial) => ({
+    ...initial,
+    tubes: initial.tubes.map((tube) => [...tube]),
+  }))
+
   return (
-    <GameProvider>
+    <GameContext.Provider value={{ state, dispatch }}>
       <Game />
-    </GameProvider>
+    </GameContext.Provider>
   )
 }
-
-export default App
